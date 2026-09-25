@@ -1,149 +1,134 @@
-# YoWif — сайт с настоящим бэкендом
+# YoWif — tour website with real ticket payments
 
-Сайт рок-группы с настоящим бэкендом: форма связи, подписка на новости,
-демо-покупка билетов с письмом-билетом на почту и админ-панель.
+A concert website for a (fictional) rock band: tour dates across Europe, ticket
+purchase through **Stripe**, ticket e-mails, an admin panel and a PostgreSQL
+database. Built as a portfolio case, deployed and handed over like a real
+client project.
 
-- **Хранилище:** в интернете PostgreSQL (Supabase, переменная `DATABASE_URL`),
-  на компьютере разработчика обычные JSON-файлы в папке `data/`, без
-  установки базы.
-- **Письма:** Resend (переменная `RESEND_API_KEY`).
-- **Хостинг:** Render.
-- **Оплата демонстрационная:** деньги не списываются, данные карты не
-  покидают браузер.
+**Live demo:** https://yowif-site.onrender.com
+Payments run in Stripe **test mode**, so you can buy a ticket with the card
+`4242 4242 4242 4242`, any future date and any CVC. No real money is charged.
 
-Все секреты задаются в настройках хостинга, в коде их нет. Список —
-в `HANDOVER.md`.
+> The first visit may take a few seconds while the free server wakes up.
 
-## Что внутри
+[Русская версия](README.ru.md)
 
+![Home page](docs/screenshots/home-desktop.png)
+
+| Tour dates | Checkout |
+|---|---|
+| ![Tour dates](docs/screenshots/tour-desktop.png) | ![Checkout](docs/screenshots/checkout-desktop.png) |
+
+## Features
+
+- **7 pages:** home, band, tour, contact, checkout, privacy policy, custom 404.
+- **Ticket purchase:** pick a show and quantity → pay on Stripe's page → get a
+  ticket on screen and by e-mail, with "add to calendar".
+- **Admin panel** (password-protected): orders with payment status and revenue,
+  contact messages, newsletter subscribers.
+- **Contact form and newsletter** saved to the database.
+- **Animations:** letters flying in, photo reveal, counters, scroll reveal,
+  marquee. All of them turn off for users with "reduce motion".
+- **Responsive** down to 320 px. Lighthouse (mobile): performance 92–96,
+  accessibility, best practices and SEO 100.
+- **Privacy policy** describing what the site really does with data (GDPR).
+- **Health check** `/health` for uptime monitoring.
+
+## How a payment works
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant S as YoWif server
+    participant P as Stripe
+    B->>S: show + quantity + name + email
+    S->>S: checks the show, calculates the price, saves order as "pending"
+    S->>P: create payment page for this amount
+    P-->>B: Stripe's payment page (card is typed here)
+    P->>S: webhook "paid" (signed)
+    S->>S: verifies signature, order becomes "paid", sends ticket e-mail once
+    B->>S: back on the site with session id
+    S->>P: "was this session really paid?"
+    S-->>B: ticket
 ```
-yowif-server/
-  server.js        — сам сервер (Node.js + Express)
-  lib/db.js        — хранилище: PostgreSQL или JSON-файлы
-  lib/mail.js      — отправка письма-билета через Resend
-  package.json     — список нужных библиотек
-  .env.example     — образец настроек (пароль, база, почта)
-  HANDOVER.md      — акт передачи: где что лежит, секреты, чек-лист
-  public/          — сайт: index, band, tour, contact, checkout, privacy, 404, css, js, img
-  admin/           — админ-панель (заказы, сообщения, подписчики)
-  data/            — JSON-файлы при локальном запуске (в git не попадают)
-```
 
-## Как запустить (один раз настроить)
+## Security decisions
 
-1. Установите **Node.js**, если ещё не стоит (`nodejs.org`).
-2. Распакуйте архив, откройте папку `yowif-server` в терминале
-   (в проводнике: клик по адресной строке → `cmd` → Enter).
-3. Скопируйте файл `.env.example` в `.env` и в нём поменяйте пароль
-   администратора:
-   ```
-   ADMIN_PASSWORD=ваш-новый-пароль
-   ```
-4. Установите библиотеки:
-   ```
-   npm install
-   ```
-5. Запустите сервер:
-   ```
-   npm start
-   ```
-6. В браузере откройте:
-   - `http://localhost:3000` — сам сайт
-   - `http://localhost:3000/admin` — админка (спросит логин и пароль;
-     логин можно любой, важен только пароль из `.env`)
+- **Card numbers never reach the server.** They are typed on Stripe's page;
+  the site only stores "paid / not paid".
+- **The server decides the price.** The browser only sends which show and how
+  many tickets; a faked price in the request is ignored. Sold-out shows are
+  refused before any payment.
+- **Payment is confirmed only by Stripe:** signed webhooks are verified, and
+  the return page asks Stripe directly. Forged or altered webhooks are rejected.
+- **Exactly-once fulfilment:** "pending → paid" is a single atomic database
+  update, so a repeated webhook never sends a second e-mail.
+- **SQL injection:** values are always query parameters, table and column
+  names come only from a whitelist in code.
+- **No secrets in code.** Every key lives in the hosting settings. The server
+  refuses to start with a missing or weak admin password.
+- **Admin password** is compared in constant time.
+- **Rate limiting** on the API, HTML escaping everywhere user data is shown.
 
-Пока в чёрном окне терминала написано `YoWif server running`, сервер
-работает. Закрыть его — закрыть окно или нажать Ctrl+C.
+## Tech stack
 
-## Тесты
+| Part | Technology |
+|---|---|
+| Front-end | HTML, CSS, vanilla JavaScript (no framework) |
+| Back-end | Node.js 24, Express |
+| Database | PostgreSQL (Supabase); JSON files for local development |
+| Payments | Stripe Checkout + webhooks |
+| E-mail | Resend |
+| Hosting | Render |
+| Monitoring | UptimeRobot → `/health` |
+| Tests / CI | `node:test`, PGlite (Postgres in WebAssembly), GitHub Actions |
+
+## Tests
 
 ```
 npm test
 ```
 
-24 теста на встроенном в Node движке `node:test`: хранилище (на настоящем
-PostgreSQL через PGlite, без установки базы), API сайта, покупка, админка,
-подписи вебхуков Stripe, защита от SQL-инъекций и подмены цены. Сервер
-в тестах пишет во временную папку, настоящая `data/` не трогается.
+24 tests: storage on a real PostgreSQL engine (PGlite, no database server
+needed), all API routes, price tampering, sold-out and invalid orders, admin
+authentication, Stripe webhook signatures (forged, wrong secret, altered body),
+duplicate webhooks, simultaneous payment confirmations and upgrading an
+older database without losing orders. GitHub Actions runs them on every push.
 
-GitHub Actions (`.github/workflows/test.yml`) запускает тесты при каждом
-изменении. Зелёная галочка у коммита на GitHub значит, что все тесты прошли.
+## Run locally
 
-## Как это устроено (коротко)
+```
+npm install
+cp .env.example .env      # then set ADMIN_PASSWORD (10+ characters)
+npm start
+```
 
-- **`lib/db.js`** — хранилище с двумя режимами и одинаковыми функциями
-  (сохранить, прочитать, найти, удалить). Если задан `DATABASE_URL`,
-  данные идут в PostgreSQL, таблицы создаются сами при первом запуске.
-  Если нет, в файлы `data/*.json`. Имена таблиц и колонок берутся только
-  из списка в коде, а значения передаются параметрами, поэтому
-  SQL-инъекции невозможны.
-- **`server.js`** — сердце проекта. Здесь: адреса (routes), на которые
-  сайт может обращаться:
-  - `POST /api/contact` — принимает форму со страницы Contact и
-    сохраняет её в таблицу `messages`;
-  - `POST /api/subscribe` — сохраняет email в таблицу `subscribers`
-    (повторный такой же email не дублируется);
-  - `GET /api/tour` — отдаёт даты тура с ценами в формате JSON;
-  - `POST /api/orders` — демо-покупка билетов: сохраняет заказ и
-    отправляет письмо-билет;
-  - `/admin` и `/api/admin/...` — закрыты паролем (функция
-    `requireAdmin`), обычные посетители сайта их не увидят.
-- **`public/checkout.html` + `public/js/checkout.js`** — страница покупки.
-  Кнопки «Buy tickets» на странице Tour ведут сюда с адресом вида
-  `checkout.html?date=2026-11-13`. Скрипт берёт дату из адреса, загружает
-  тур с сервера, показывает концерт и цену, а после оплаты рисует билет с
-  номером заказа `YW-XXXXXX`. Поля карты демонстрационные: они проверяются
-  в браузере и **никуда не отправляются**. На сервер уходят только дата,
-  количество, имя и email.
-- **Главный урок про безопасность:** сумму заказа и то, распродан ли
-  концерт, решает только сервер. Даже если в браузере подменить цену на
-  1 €, сервер её проигнорирует и посчитает `цена × количество` сам.
-- **`public/js/main.js`** — в конце файла добавлены два блока: они
-  ловят отправку формы и подписки, проверяют поля и отправляют их
-  запросом `fetch()` на сервер, а потом показывают ответ.
-- **`admin/admin.html`** — простая страница, которая запрашивает
-  `/api/admin/orders`, `/api/admin/messages` и `/api/admin/subscribers`
-  и рисует из них таблицы, плюс считает проданные билеты и выручку.
-  Кнопка Copy email копирует адрес, чтобы вставить его в Gmail. Оттуда же
-  можно удалить любую запись.
+Open http://localhost:3000 (site) and http://localhost:3000/admin (admin).
+Without a database URL the data is stored in `data/*.json`; without a Stripe
+key the checkout runs in demo mode.
 
-## Что можно потрогать и поменять
+## Project structure
 
-- Откройте `data/messages.json` в блокноте после того, как отправите
-  форму на сайте, — увидите свою заявку в чистом виде, как её хранит
-  сервер.
-- Отправьте форму на сайте и обновите `/admin` — заявка появится там.
-- В `server.js` в массиве `TOUR` можно менять города и даты, не трогая
-  HTML.
-- Пароль администратора живёт только в `.env` и не должен попадать в
-  Git или в чужие руки — файл специально добавлен в `.gitignore`.
+```
+server.js          routes, validation, admin, start-up
+lib/db.js          storage: PostgreSQL or JSON files, same interface
+lib/payments.js    Stripe Checkout and webhook verification
+lib/mail.js        ticket e-mail (HTML built for mail apps and dark mode)
+public/            the website
+admin/             admin panel
+test/              automated tests
+HANDOVER.md        handover document for the client (in Russian)
+```
 
-## Ограничения (важно понимать)
+## Handover
 
-- Сервер сделан для обучения и для локального запуска на вашем
-  компьютере. Это не «облачный» сервер: пока вы не разместите его на
-  хостинге, доступ к нему есть только на вашей машине.
-- Настоящих писем никто не получает: заявки просто сохраняются в базу.
-  Чтобы реально отправлять email, нужен почтовый сервис (например,
-  Resend или SendGrid) — это можно будет добавить отдельным шагом.
-- Защита администратора — простая (HTTP Basic Auth). Для учебного
-  проекта и личного пользования этого достаточно; для сайта с
-  настоящими клиентами позже стоит сделать полноценный вход с
-  сессиями.
-- Оплаты и продажи билетов нет специально: этого просят избегать все
-  подобные площадки без специальной лицензии. Если понадобится
-  показать «как это выглядит», используют тестовый (demo) режим
-  Stripe — он не проводит настоящих платежей.
+The project was delivered as for a real client: every account (GitHub
+organization, hosting, database, Stripe, e-mail, monitoring) belongs to the
+client, and the developer only had a write key to one repository. At handover
+the client removed that key, the developer confirmed that both reading and
+pushing were refused, and deleted all local secrets. See
+[HANDOVER.md](HANDOVER.md).
 
-## Если сайт нужен и в интернете (Netlify), и с бэкендом
+---
 
-Netlify умеет отдавать только статические файлы (HTML/CSS/JS), но не
-запускать такой сервер Node.js напрямую. Варианты:
-1. **Для портфолио:** показывайте этот проект как есть — с кодом на
-   GitHub и видео или скриншотами работы админки. Это тоже ценится:
-   заказчику важно видеть, что вы умеете именно так.
-2. **Чтобы всё же выложить онлайн:** сервер можно разместить на
-   Render, Railway или Fly.io (у всех есть бесплatные тарифы с
-   ограничениями) — тогда `/api/...` будет работать и в интернете, а
-   не только на вашем компьютере. Это отдельный шаг, я подробно
-   распишу его, когда до него дойдём.
+The band, its members and the tour are fictional.
