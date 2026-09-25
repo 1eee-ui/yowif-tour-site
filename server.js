@@ -223,6 +223,21 @@ app.get('/api/orders/confirm', handle(async (req, res) => {
   res.json(Object.assign({ ok: true }, result));
 }));
 
+// Health check for uptime monitoring (e.g. UptimeRobot every 5 minutes).
+// It really touches the database, so it also keeps a free database from
+// being paused for inactivity, and reports 503 if the database is down.
+// Only "ok"/"error" is shown — no internal details for strangers.
+app.get('/health', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    await db.ping();
+    res.json({ status: 'ok' });
+  } catch (e) {
+    console.error('Health check failed:', e.message);
+    res.status(503).json({ status: 'error' });
+  }
+});
+
 app.get('/api/payment-mode', (req, res) => {
   res.json({ mode: payments.mode });
 });
