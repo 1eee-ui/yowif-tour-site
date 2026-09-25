@@ -83,12 +83,16 @@ f.addEventListener('submit',function(e){
     .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j}})})
     .then(function(res){
       if(!res.ok){payBtn.disabled=false;update();return err(res.j.error||'Something went wrong.')}
-      showTicket(res.j.order);
+      showTicket(res.j.order,res.j.emailSent);
     })
     .catch(function(){payBtn.disabled=false;update();err('Could not reach the server. Is it running?')});
 });
 
-function showTicket(o){
+function showTicket(o,sent){
+  // be honest about the e-mail: only claim it was sent if the server says so
+  $('#t-mail').textContent=sent
+    ?'Thank you! Your ticket has been sent to '+o.email+'.'
+    :'Thank you! We could not e-mail your ticket, so please save it or take a screenshot.';
   $('#t-city').textContent=o.city;
   $('#t-venue').textContent=o.venue;
   $('#t-date').textContent=dm(o.date)+'.'+o.date.slice(0,4);

@@ -8,7 +8,8 @@
 //  - POST /api/contact    -> saves a contact-form message
 //  - POST /api/subscribe  -> saves a newsletter e-mail
 //  - GET  /api/tour       -> returns the tour dates (with prices) as JSON
-//  - POST /api/orders     -> demo ticket purchase, saved to data/orders.json
+//  - POST /api/orders     -> demo ticket purchase, saved to data/orders.json,
+//                            ticket e-mailed via Resend if RESEND_API_KEY is set
 //  - an /admin panel, protected by a password from .env, to read messages, subscribers and orders
 //
 // Everything here is written to be read and understood, not to be clever.
@@ -18,6 +19,7 @@ const path = require('path');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const db = require('./lib/db');
+const mail = require('./lib/mail');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -113,7 +115,7 @@ function orderCode() {
   return code;
 }
 
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', async (req, res) => {
   const show = TOUR.find(t => t.date === req.body.date);
   const qty = Number(req.body.qty);
   const name = String(req.body.name || '').trim();
@@ -143,7 +145,10 @@ app.post('/api/orders', (req, res) => {
     name,
     email,
   });
-  res.json({ ok: true, order });
+  // The order is already saved; if the e-mail fails, the buyer still has the
+  // ticket on screen and the page tells them the e-mail did not go out.
+  const emailSent = await mail.sendTicket(order);
+  res.json({ ok: true, order, emailSent });
 });
 
 // ----- admin panel (password-protected) -----
