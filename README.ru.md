@@ -2,6 +2,8 @@
 
 [English version](README.md) · Живой сайт: https://yowif-site.onrender.com
 
+Визуальный дизайн основан на [концепте Music Festival Landing Page от Gapsy Studio](https://dribbble.com/shots/27747634-Music-Festival-Landing-Page) (Dribbble). Вёрстка, дополнительные страницы, анимации, бэкенд, оплата, тесты и развёртывание — моя работа.
+
 Фото на главной: [Benjamin Farren, Pexels](https://www.pexels.com/photo/21790480/) (бесплатная лицензия Pexels).
 
 Сайт рок-группы с настоящим бэкендом: форма связи, подписка на новости,

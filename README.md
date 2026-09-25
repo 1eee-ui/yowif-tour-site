@@ -131,6 +131,9 @@ pushing were refused, and deleted all local secrets. See
 
 ## Credits
 
+- Visual design is based on the [Music Festival Landing Page concept by Gapsy Studio](https://dribbble.com/shots/27747634-Music-Festival-Landing-Page)
+  on Dribbble. The front-end implementation, extra pages, animations,
+  back-end, payments, tests and deployment are my own work.
 - Hero photo: [Benjamin Farren on Pexels](https://www.pexels.com/photo/21790480/), free to use under the Pexels License.
 - Fonts: Anton, Bebas Neue and Inter Tight from Google Fonts (SIL Open Font License).
 
