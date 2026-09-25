@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact — YoWif</title>
+<link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+<meta name="description" content="Contact YoWif: booking, press and fan messages.">
+<meta name="theme-color" content="#08080a">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.classList.add("js")</script>
+</head>
+<body>
+<div class="wrap"><nav>
+  <a class="logo" href="index.html"><i>Y</i>YOWIF</a>
+  <ul class="cond"><li><a href="index.html">Home</a></li><li><a href="band.html">Band</a></li><li><a href="tour.html">Tour</a></li><li><a href="contact.html" class="active">Contact</a></li></ul>
+  <a class="buy" href="tour.html">Buy a ticket</a>
+  <button class="burger" aria-label="Menu" aria-expanded="false">&#9776;</button>
+</nav>
+<h1 class="page-h">Contact</h1>
+<p class="lead">Booking, press, tickets or just a message to the band. We read everything.</p>
+<div class="contact-grid">
+  <form id="contact" novalidate>
+    <label>Name<input name="name" required></label>
+    <label>Email<input name="email" type="email" required></label>
+    <label>Topic<select name="topic"><option>Tickets</option><option>Booking</option><option>Press</option><option>Fan message</option></select></label>
+    <label>Message<textarea name="message" required></textarea></label>
+    <button class="btn form-btn" type="submit">Send</button>
+    <p class="msg" id="msg" role="status"></p>
+  </form>
+  <div class="info">
+    <p><b>Booking:</b> booking@yowif.example</p>
+    <p><b>Press:</b> press@yowif.example</p>
+    <p><b>Follow:</b> Instagram &middot; YouTube &middot; Spotify</p>
+    <p>Next show: <a class="more" style="margin:0;font-size:24px" href="tour.html">Berlin, 13.11</a></p>
+  </div>
+</div>
+<div class="news">
+  <h2>Join the mailing list</h2>
+  <p class="lead" style="margin-bottom:24px">New dates first, no spam. One email now and then.</p>
+  <form id="newsletter" class="news-form" novalidate>
+    <input type="email" name="email" placeholder="you@example.com" required aria-label="Email">
+    <button class="btn form-btn" type="submit">Subscribe</button>
+  </form>
+  <p class="msg" id="nmsg" role="status"></p>
+</div>
+
+<footer>
+  <a class="cond" href="index.html" style="font-size:22px;color:var(--acid)">YoWif</a>
+  <span><a href="band.html">Band</a> &middot; <a href="tour.html">Tour</a> &middot; <a href="contact.html">Contact</a></span>
+  <span>&copy; 2026 YoWif. All rights reserved.</span>
+</footer>
+</div>
+<script src="js/main.js"></script>
+</body>
+</html>

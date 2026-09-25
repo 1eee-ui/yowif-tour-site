@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Checkout — YoWif</title>
+<link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+<meta name="description" content="Buy tickets for YoWif European tour 2026/27.">
+<meta name="theme-color" content="#08080a">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.classList.add("js")</script>
+</head>
+<body>
+<div class="wrap"><nav>
+  <a class="logo" href="index.html"><i>Y</i>YOWIF</a>
+  <ul class="cond"><li><a href="index.html">Home</a></li><li><a href="band.html">Band</a></li><li><a href="tour.html">Tour</a></li><li><a href="contact.html">Contact</a></li></ul>
+  <a class="buy" href="tour.html">Buy a ticket</a>
+  <button class="burger" aria-label="Menu" aria-expanded="false">&#9776;</button>
+</nav>
+<h1 class="page-h">Checkout</h1>
+<p class="demo-note">Demo checkout: no real payment is made and card details never leave your browser.</p>
+
+<p class="lead" id="notfound" hidden>Show not found. <a class="more" style="margin:0" href="tour.html">Pick a date</a></p>
+
+<div class="checkout" id="checkout" hidden>
+  <aside class="show-card">
+    <span class="label cond">You're going to</span>
+    <b class="d" id="s-date"></b>
+    <span class="city" id="s-city"></span>
+    <span class="ctry" id="s-venue"></span>
+    <div class="sum">
+      <div class="row"><span>Ticket</span><span id="s-price"></span></div>
+      <div class="row"><span>Quantity</span><span id="s-qty">1</span></div>
+      <div class="row total"><span>Total</span><span id="s-total"></span></div>
+    </div>
+  </aside>
+
+  <form id="order" novalidate>
+    <label>Tickets
+      <div class="qty">
+        <button type="button" data-step="-1" aria-label="Fewer tickets">&minus;</button>
+        <input name="qty" type="number" min="1" max="6" value="1" readonly aria-label="Number of tickets">
+        <button type="button" data-step="1" aria-label="More tickets">+</button>
+      </div>
+    </label>
+    <label>Full name<input name="name" autocomplete="name" required></label>
+    <label>Email (tickets are sent here)<input name="email" type="email" autocomplete="email" required></label>
+    <fieldset class="card-fields">
+      <legend>Card (demo, try 4242 4242 4242 4242)</legend>
+      <label>Card number<input name="card" inputmode="numeric" autocomplete="off" placeholder="4242 4242 4242 4242" maxlength="19"></label>
+      <div class="two">
+        <label>Expiry<input name="exp" inputmode="numeric" autocomplete="off" placeholder="MM/YY" maxlength="5"></label>
+        <label>CVC<input name="cvc" inputmode="numeric" autocomplete="off" placeholder="123" maxlength="3"></label>
+      </div>
+    </fieldset>
+    <button class="btn form-btn" type="submit" id="pay">Pay</button>
+    <p class="msg" id="omsg" role="status"></p>
+  </form>
+</div>
+
+<div class="ticket" id="ticket" hidden>
+  <div class="t-main">
+    <span class="label cond">YoWif live &middot; European tour 2026/27</span>
+    <b class="city" id="t-city"></b>
+    <span class="ctry" id="t-venue"></span>
+    <div class="t-grid">
+      <div><span>Date</span><b id="t-date"></b></div>
+      <div><span>Doors</span><b>19:00</b></div>
+      <div><span>Tickets</span><b id="t-qty"></b></div>
+      <div><span>Paid</span><b id="t-total"></b></div>
+    </div>
+    <p class="t-name" id="t-name"></p>
+  </div>
+  <div class="t-stub">
+    <span>Order</span>
+    <b id="t-code"></b>
+    <button class="rem" type="button" id="t-cal">Add to calendar</button>
+  </div>
+</div>
+<p class="lead" id="t-after" hidden>Thank you! Show this ticket at the entrance. <a class="more" style="margin:0" href="tour.html">Back to tour</a></p>
+
+<footer>
+  <a class="cond" href="index.html" style="font-size:22px;color:var(--acid)">YoWif</a>
+  <span><a href="band.html">Band</a> &middot; <a href="tour.html">Tour</a> &middot; <a href="contact.html">Contact</a></span>
+  <span>&copy; 2026 YoWif. All rights reserved.</span>
+</footer>
+</div>
+<script src="js/main.js"></script>
+<script src="js/checkout.js"></script>
+</body>
+</html>

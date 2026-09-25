@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YoWif — Admin</title>
+<link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+<style>
+:root{--bg:#08080a;--panel:#131313;--acid:#eeff7c;--text:#f2f2f2;--mute:#8a8a8a;--line:#262626}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:Arial,sans-serif;margin:0;padding:32px}
+h1{font-size:28px;margin:0 0 4px}
+.sub{color:var(--mute);margin:0 0 30px}
+h2{font-size:20px;color:var(--acid);margin:40px 0 12px}
+table{width:100%;border-collapse:collapse;background:var(--panel)}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+th{color:var(--mute);font-weight:normal}
+tr:last-child td{border-bottom:none}
+.msg{max-width:420px;white-space:pre-wrap}
+button{background:transparent;border:1px solid #ff8a8a;color:#ff8a8a;padding:6px 12px;cursor:pointer;font-size:13px}
+button:hover{background:#ff8a8a;color:#0a0a0a}
+.actions{display:flex;gap:8px;white-space:nowrap}
+button.copy{border-color:var(--acid);color:var(--acid)}
+button.copy:hover{background:var(--acid);color:#0a0a0a}
+.stats{display:flex;gap:16px;flex-wrap:wrap}
+.stat{background:var(--panel);padding:16px 22px;min-width:160px}
+.stat b{display:block;font-size:28px;color:var(--acid)}
+.stat span{color:var(--mute);font-size:13px}
+.code{font-family:monospace;color:var(--acid)}
+.empty{color:var(--mute);padding:16px 0}
+.count{color:var(--acid)}
+</style>
+</head>
+<body>
+<h1>YoWif — Admin panel</h1>
+<p class="sub">Ticket orders, contact-form messages and newsletter subscribers. Stored locally in the data/ folder.</p>
+
+<h2>Ticket orders (<span class="count" id="ocount">0</span>)</h2>
+<div class="stats">
+  <div class="stat"><b id="o-tickets">0</b><span>tickets sold</span></div>
+  <div class="stat"><b id="o-revenue">€0</b><span>demo revenue</span></div>
+</div>
+<div id="orders" style="margin-top:16px"></div>
+
+<h2>Messages (<span class="count" id="mcount">0</span>)</h2>
+<div id="messages"></div>
+
+<h2>Newsletter subscribers (<span class="count" id="scount">0</span>)</h2>
+<div id="subscribers"></div>
+
+<script>
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) throw new Error('Request failed: ' + res.status);
+  return res.json();
+}
+
+function fmt(iso) {
+  return iso.replace('T', ' ').slice(0, 16);
+}
+
+// Copy an e-mail to the clipboard, so it can be pasted into Gmail.
+function copyEmail(btn) {
+  navigator.clipboard.writeText(btn.dataset.email).then(() => {
+    btn.textContent = 'Copied ✓';
+    setTimeout(() => { btn.textContent = 'Copy email'; }, 1500);
+  });
+}
+
+function copyBtn(email) {
+  return `<button class="copy" data-email="${escapeHtml(email)}" onclick="copyEmail(this)">Copy email</button>`;
+}
+
+async function loadOrders() {
+  const rows = await api('/api/admin/orders');
+  document.getElementById('ocount').textContent = rows.length;
+  document.getElementById('o-tickets').textContent = rows.reduce((s, r) => s + r.qty, 0);
+  document.getElementById('o-revenue').textContent = '€' + rows.reduce((s, r) => s + r.total, 0);
+  const box = document.getElementById('orders');
+  if (!rows.length) { box.innerHTML = '<p class="empty">No orders yet.</p>'; return; }
+  box.innerHTML = '<table><thead><tr><th>Date</th><th>Order</th><th>Show</th><th>Qty</th><th>Total</th><th>Buyer</th><th></th></tr></thead><tbody>' +
+    rows.map(r => `<tr>
+      <td>${fmt(r.created_at)}</td>
+      <td class="code">${escapeHtml(r.code)}</td>
+      <td>${escapeHtml(r.city)}, ${escapeHtml(r.date)}</td>
+      <td>${r.qty}</td>
+      <td>€${r.total}</td>
+      <td>${escapeHtml(r.name)}<br>${escapeHtml(r.email)}</td>
+      <td class="actions">${copyBtn(r.email)}<button onclick="removeOrder(${r.id})">Delete</button></td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+async function removeOrder(id) {
+  if (!confirm('Delete this order?')) return;
+  await api('/api/admin/orders/' + id, { method: 'DELETE' });
+  loadOrders();
+}
+
+async function loadMessages() {
+  const rows = await api('/api/admin/messages');
+  document.getElementById('mcount').textContent = rows.length;
+  const box = document.getElementById('messages');
+  if (!rows.length) { box.innerHTML = '<p class="empty">No messages yet.</p>'; return; }
+  box.innerHTML = '<table><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Topic</th><th>Message</th><th></th></tr></thead><tbody>' +
+    rows.map(r => `<tr data-id="${r.id}">
+      <td>${fmt(r.created_at)}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.email)}</td>
+      <td>${escapeHtml(r.topic)}</td>
+      <td class="msg">${escapeHtml(r.message)}</td>
+      <td class="actions">
+        ${copyBtn(r.email)}
+        <button onclick="removeMessage(${r.id})">Delete</button>
+      </td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+async function loadSubscribers() {
+  const rows = await api('/api/admin/subscribers');
+  document.getElementById('scount').textContent = rows.length;
+  const box = document.getElementById('subscribers');
+  if (!rows.length) { box.innerHTML = '<p class="empty">No subscribers yet.</p>'; return; }
+  box.innerHTML = '<table><thead><tr><th>Date</th><th>Email</th><th></th></tr></thead><tbody>' +
+    rows.map(r => `<tr data-id="${r.id}">
+      <td>${fmt(r.created_at)}</td>
+      <td>${escapeHtml(r.email)}</td>
+      <td><button onclick="removeSubscriber(${r.id})">Delete</button></td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+async function removeMessage(id) {
+  if (!confirm('Delete this message?')) return;
+  await api('/api/admin/messages/' + id, { method: 'DELETE' });
+  loadMessages();
+}
+async function removeSubscriber(id) {
+  if (!confirm('Delete this subscriber?')) return;
+  await api('/api/admin/subscribers/' + id, { method: 'DELETE' });
+  loadSubscribers();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+loadOrders();
+loadMessages();
+loadSubscribers();
+</script>
+</body>
+</html>
