@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tour dates — YoWif</title>
+<link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+<meta name="description" content="All YoWif European tour dates 2026/27.">
+<meta name="theme-color" content="#08080a">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.classList.add("js")</script>
+</head>
+<body>
+<div class="wrap"><nav>
+  <a class="logo" href="index.html"><i>Y</i>YOWIF</a>
+  <ul class="cond"><li><a href="index.html">Home</a></li><li><a href="band.html">Band</a></li><li><a href="tour.html" class="active">Tour</a></li><li><a href="contact.html">Contact</a></li></ul>
+  <a class="buy" href="tour.html">Buy a ticket</a>
+  <button class="burger" aria-label="Menu" aria-expanded="false">&#9776;</button>
+</nav>
+<h1 class="page-h">Tour dates</h1>
+<p class="lead">Eight cities, eight countries. Find your city and add the show to your calendar.</p>
+<input class="search" id="q" type="search" placeholder="Search city or country..." aria-label="Search tour dates">
+<ul class="tour">
+<li data-date="2026-11-13"><span class="d">13.11</span><span class="city">Berlin</span><span class="ctry">Germany</span><a class="st" href="checkout.html?date=2026-11-13">Buy tickets &#8599;</a></li>
+<li data-date="2026-11-15"><span class="d">15.11</span><span class="city">Prague</span><span class="ctry">Czech Republic</span><a class="st" href="checkout.html?date=2026-11-15">Buy tickets &#8599;</a></li>
+<li data-date="2026-11-17"><span class="d">17.11</span><span class="city">Vienna</span><span class="ctry">Austria</span><span class="st sold">Sold out</span></li>
+<li data-date="2026-11-20"><span class="d">20.11</span><span class="city">Amsterdam</span><span class="ctry">Netherlands</span><a class="st" href="checkout.html?date=2026-11-20">Buy tickets &#8599;</a></li>
+<li data-date="2026-11-22"><span class="d">22.11</span><span class="city">Paris</span><span class="ctry">France</span><a class="st" href="checkout.html?date=2026-11-22">Buy tickets &#8599;</a></li>
+<li data-date="2026-11-25"><span class="d">25.11</span><span class="city">Barcelona</span><span class="ctry">Spain</span><a class="st" href="checkout.html?date=2026-11-25">Buy tickets &#8599;</a></li>
+<li data-date="2026-11-28"><span class="d">28.11</span><span class="city">Milan</span><span class="ctry">Italy</span><span class="st sold">Sold out</span></li>
+<li data-date="2026-12-01"><span class="d">01.12</span><span class="city">Warsaw</span><span class="ctry">Poland</span><a class="st" href="checkout.html?date=2026-12-01">Buy tickets &#8599;</a></li>
+</ul>
+<p class="empty" id="empty">Nothing found. Try another city.</p>
+<div class="cta">
+  <h2>Be in the crowd</h2>
+  <p>Photos fade, playlists end. But the moment when the lights go up and the whole room screams the chorus with you stays forever. Don't watch it later, be there.</p>
+  <a class="btn" href="tour.html">Get your ticket</a>
+</div><div class="news">
+  <h2>Join the mailing list</h2>
+  <p class="lead" style="margin-bottom:24px">New dates first, no spam. One email now and then.</p>
+  <form id="newsletter" class="news-form" novalidate>
+    <input type="email" name="email" placeholder="you@example.com" required aria-label="Email">
+    <button class="btn form-btn" type="submit">Subscribe</button>
+  </form>
+  <p class="msg" id="nmsg" role="status"></p>
+</div>
+
+<footer>
+  <a class="cond" href="index.html" style="font-size:22px;color:var(--acid)">YoWif</a>
+  <span><a href="band.html">Band</a> &middot; <a href="tour.html">Tour</a> &middot; <a href="contact.html">Contact</a></span>
+  <span>&copy; 2026 YoWif. All rights reserved.</span>
+</footer>
+</div>
+<script src="js/main.js"></script>
+</body>
+</html>
