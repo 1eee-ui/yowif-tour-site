@@ -27,6 +27,9 @@ button.copy:hover{background:var(--acid);color:#0a0a0a}
 .stat b{display:block;font-size:28px;color:var(--acid)}
 .stat span{color:var(--mute);font-size:13px}
 .code{font-family:monospace;color:var(--acid)}
+.st-paid{color:var(--acid)}
+.st-pending{color:var(--mute)}
+.st-failed{color:#ff8a8a}
 .empty{color:var(--mute);padding:16px 0}
 .count{color:var(--acid)}
 </style>
@@ -38,7 +41,7 @@ button.copy:hover{background:var(--acid);color:#0a0a0a}
 <h2>Ticket orders (<span class="count" id="ocount">0</span>)</h2>
 <div class="stats">
   <div class="stat"><b id="o-tickets">0</b><span>tickets sold</span></div>
-  <div class="stat"><b id="o-revenue">€0</b><span>demo revenue</span></div>
+  <div class="stat"><b id="o-revenue">€0</b><span>revenue (paid orders)</span></div>
 </div>
 <div id="orders" style="margin-top:16px"></div>
 
@@ -74,17 +77,20 @@ function copyBtn(email) {
 async function loadOrders() {
   const rows = await api('/api/admin/orders');
   document.getElementById('ocount').textContent = rows.length;
-  document.getElementById('o-tickets').textContent = rows.reduce((s, r) => s + r.qty, 0);
-  document.getElementById('o-revenue').textContent = '€' + rows.reduce((s, r) => s + r.total, 0);
+  // only paid orders count; "pending" = the buyer went to Stripe but did not pay (yet)
+  const paid = rows.filter(r => (r.status || 'paid') === 'paid');
+  document.getElementById('o-tickets').textContent = paid.reduce((s, r) => s + r.qty, 0);
+  document.getElementById('o-revenue').textContent = '€' + paid.reduce((s, r) => s + r.total, 0);
   const box = document.getElementById('orders');
   if (!rows.length) { box.innerHTML = '<p class="empty">No orders yet.</p>'; return; }
-  box.innerHTML = '<table><thead><tr><th>Date</th><th>Order</th><th>Show</th><th>Qty</th><th>Total</th><th>Buyer</th><th></th></tr></thead><tbody>' +
+  box.innerHTML = '<table><thead><tr><th>Date</th><th>Order</th><th>Show</th><th>Qty</th><th>Total</th><th>Status</th><th>Buyer</th><th></th></tr></thead><tbody>' +
     rows.map(r => `<tr>
       <td>${fmt(r.created_at)}</td>
       <td class="code">${escapeHtml(r.code)}</td>
       <td>${escapeHtml(r.city)}, ${escapeHtml(r.date)}</td>
       <td>${r.qty}</td>
       <td>€${r.total}</td>
+      <td class="st-${escapeHtml(r.status || 'paid')}">${escapeHtml(r.status || 'paid')}</td>
       <td>${escapeHtml(r.name)}<br>${escapeHtml(r.email)}</td>
       <td class="actions">${copyBtn(r.email)}<button onclick="removeOrder(${r.id})">Delete</button></td>
     </tr>`).join('') + '</tbody></table>';

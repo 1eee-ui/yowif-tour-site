@@ -19,7 +19,7 @@
   <button class="burger" aria-label="Menu" aria-expanded="false">&#9776;</button>
 </nav>
 <h1 class="page-h">Checkout</h1>
-<p class="demo-note">Demo checkout: no real payment is made and card details never leave your browser.</p>
+<p class="demo-note" id="mode-note" hidden></p>
 
 <p class="lead" id="notfound" hidden>Show not found. <a class="more" style="margin:0" href="tour.html">Pick a date</a></p>
 
@@ -46,15 +46,8 @@
     </label>
     <label>Full name<input name="name" autocomplete="name" required></label>
     <label>Email (we'll send your ticket here)<input name="email" type="email" autocomplete="email" required></label>
-    <fieldset class="card-fields">
-      <legend>Card (demo, try 4242 4242 4242 4242)</legend>
-      <label>Card number<input name="card" inputmode="numeric" autocomplete="off" placeholder="4242 4242 4242 4242" maxlength="19"></label>
-      <div class="two">
-        <label>Expiry<input name="exp" inputmode="numeric" autocomplete="off" placeholder="MM/YY" maxlength="5"></label>
-        <label>CVC<input name="cvc" inputmode="numeric" autocomplete="off" placeholder="123" maxlength="3"></label>
-      </div>
-    </fieldset>
-    <button class="btn form-btn" type="submit" id="pay">Pay</button>
+    <p class="secure" id="secure-note" hidden>You will enter your card on Stripe's secure payment page. Card details never reach our server.</p>
+    <button class="btn form-btn" type="submit" id="pay">Continue</button>
     <p class="msg" id="omsg" role="status"></p>
     <p class="fine">We use your name and email only for this order. See our <a href="/privacy.html">privacy policy</a>.</p>
   </form>

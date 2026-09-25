@@ -7,8 +7,10 @@
 //  - POST /api/contact    -> saves a contact-form message
 //  - POST /api/subscribe  -> saves a newsletter e-mail
 //  - GET  /api/tour       -> returns the tour dates (with prices) as JSON
-//  - POST /api/orders     -> demo ticket purchase, saved to the database,
+//  - POST /api/orders     -> ticket purchase: payment on Stripe's page (lib/payments.js),
+//                            or instant demo order without STRIPE_SECRET_KEY;
 //                            ticket e-mailed via Resend if RESEND_API_KEY is set
+//  - POST /api/stripe/webhook, GET /api/orders/confirm -> payment confirmation
 //  - an /admin panel, protected by a password from .env, to read messages, subscribers and orders
 //
 // Everything here is written to be read and understood, not to be clever.
@@ -20,6 +22,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const db = require('./lib/db').createStore();
 const mail = require('./lib/mail');
+const payments = require('./lib/payments');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
@@ -53,6 +56,29 @@ const app = express();
 // On hosting (Render etc.) requests come through one proxy. Trust it, so the
 // rate limiter sees each visitor's real IP instead of the proxy's.
 app.set('trust proxy', 1);
+
+// Express 4 does not catch errors thrown inside async handlers. This wrapper
+// does, so a database problem returns a clear error instead of a hung request.
+const handle = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+// Stripe webhook: Stripe calls this address when a payment is completed.
+// It must get the body exactly as sent (raw), because the signature check
+// is done over those exact bytes — so it is registered BEFORE express.json().
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), handle(async (req, res) => {
+  let event;
+  try {
+    event = payments.verifyWebhook(req.body, req.headers['stripe-signature']);
+  } catch (e) {
+    console.error('Rejected webhook:', e.message);
+    return res.status(400).send('Invalid signature');
+  }
+  if (event.type === 'checkout.session.completed' && event.data.object.payment_status === 'paid') {
+    const code = event.data.object.metadata && event.data.object.metadata.order_code;
+    if (code) await fulfillOrder(code);
+  }
+  res.json({ received: true });
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -69,10 +95,6 @@ app.use('/api', apiLimiter);
 function isValidEmail(v) {
   return typeof v === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
 }
-
-// Express 4 does not catch errors thrown inside async handlers. This wrapper
-// does, so a database problem returns a clear error instead of a hung request.
-const handle = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // ----- public API -----
 
@@ -108,10 +130,14 @@ app.post('/api/subscribe', handle(async (req, res) => {
   res.json({ ok: true });
 }));
 
-// Demo ticket purchase. No money moves: card fields never leave the browser.
-// The important lesson here: the browser only says WHICH show and HOW MANY.
-// Price, total and "is it sold out?" are always decided by the server,
-// because anything sent from a browser can be faked.
+// Ticket purchase.
+// The browser only says WHICH show and HOW MANY. Price, total and
+// "is it sold out?" are always decided by the server, because anything
+// sent from a browser can be faked.
+//
+// With Stripe: order is saved as "pending" -> buyer pays on Stripe's page ->
+// the order becomes "paid" (confirmed by Stripe) -> ticket e-mail is sent.
+// Without Stripe (demo mode): the order is "paid" at once, no money involved.
 function orderCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = 'YW-';
@@ -148,12 +174,58 @@ app.post('/api/orders', handle(async (req, res) => {
     total: show.price * qty,
     name,
     email,
+    status: 'pending',
   });
-  // The order is already saved; if the e-mail fails, the buyer still has the
-  // ticket on screen and the page tells them the e-mail did not go out.
-  const emailSent = await mail.sendTicket(order);
-  res.json({ ok: true, order, emailSent });
+
+  if (payments.mode === 'demo') {
+    return res.json(Object.assign({ ok: true }, await fulfillOrder(order.code)));
+  }
+
+  try {
+    const siteUrl = process.env.SITE_URL || `${req.protocol}://${req.get('host')}`;
+    const checkout = await payments.createCheckout(order, siteUrl);
+    await db.updateWhere('orders', { code: order.code }, { stripe_session: checkout.sessionId });
+    res.json({ ok: true, redirect: checkout.url });
+  } catch (e) {
+    console.error('Stripe could not create a payment for order ' + order.code + ':', e.message);
+    await db.updateWhere('orders', { code: order.code }, { status: 'failed' });
+    res.status(502).json({ ok: false, error: 'Payment is not available right now. Please try again later.' });
+  }
 }));
+
+// Marks an order as paid and sends the ticket e-mail — exactly once.
+// Both the webhook and the buyer's return to the site call this; whichever
+// comes first switches "pending" to "paid", the other one changes nothing.
+async function fulfillOrder(code) {
+  const justPaid = await db.updateWhere('orders', { code, status: 'pending' }, { status: 'paid' });
+  if (justPaid) {
+    const emailSent = await mail.sendTicket(justPaid);
+    return { order: justPaid, emailSent };
+  }
+  return { order: await db.findOne('orders', 'code', code), emailSent: null };
+}
+
+// The buyer comes back from Stripe with ?session_id=... We ask Stripe
+// ourselves whether that payment really went through.
+app.get('/api/orders/confirm', handle(async (req, res) => {
+  const sessionId = String(req.query.session_id || '');
+  if (payments.mode === 'demo' || !/^cs_[A-Za-z0-9_]+$/.test(sessionId)) {
+    return res.status(400).json({ ok: false, error: 'Unknown payment.' });
+  }
+  const code = await payments.paidOrderCode(sessionId);
+  if (!code) {
+    return res.status(402).json({ ok: false, error: 'The payment has not been completed.' });
+  }
+  const result = await fulfillOrder(code);
+  if (!result.order || result.order.stripe_session !== sessionId) {
+    return res.status(404).json({ ok: false, error: 'Order not found.' });
+  }
+  res.json(Object.assign({ ok: true }, result));
+}));
+
+app.get('/api/payment-mode', (req, res) => {
+  res.json({ mode: payments.mode });
+});
 
 // ----- admin panel (password-protected) -----
 // This is intentionally simple HTTP Basic Auth: the browser itself asks
@@ -214,6 +286,7 @@ db.init()
       console.log(`YoWif server running: http://localhost:${PORT}`);
       console.log(`Admin panel:          http://localhost:${PORT}/admin`);
       console.log(`Storage:              ${db.kind === 'postgres' ? 'PostgreSQL (DATABASE_URL)' : 'JSON files in data/'}`);
+      console.log(`Payments:             ${{ demo: 'DEMO (no STRIPE_SECRET_KEY, no money)', test: 'Stripe TEST mode', live: 'Stripe LIVE mode (real money)' }[payments.mode]}`);
     });
   })
   .catch(err => {
