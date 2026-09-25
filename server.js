@@ -218,5 +218,14 @@ db.init()
   })
   .catch(err => {
     console.error('Could not connect to the database:', err.message);
+    // Show where we tried to connect (never the password), to make
+    // a wrong DATABASE_URL easy to spot in the hosting logs.
+    try {
+      const u = new URL(process.env.DATABASE_URL);
+      console.error(`Tried: user "${decodeURIComponent(u.username)}" at ${u.hostname}:${u.port || 5432}${u.pathname}` +
+        ` (password length ${decodeURIComponent(u.password).length})`);
+    } catch (e) {
+      console.error('DATABASE_URL is not a valid URL. It should look like postgresql://user:password@host:5432/postgres');
+    }
     process.exit(1);
   });
