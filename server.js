@@ -1,14 +1,13 @@
-// YoWif backend — a small, real, local server.
-// No external services, no real payments. Data is stored in plain JSON
-// files on disk (data/messages.json, data/subscribers.json) — no native
-// compilation, no database server to install.
+// YoWif backend — a small, real server. No real payments.
+// Storage (see lib/db.js): PostgreSQL when DATABASE_URL is set (hosting),
+// otherwise plain JSON files in data/ (developer's computer).
 //
 // What it does:
 //  - serves the site (public/) as static files
 //  - POST /api/contact    -> saves a contact-form message
 //  - POST /api/subscribe  -> saves a newsletter e-mail
 //  - GET  /api/tour       -> returns the tour dates (with prices) as JSON
-//  - POST /api/orders     -> demo ticket purchase, saved to data/orders.json,
+//  - POST /api/orders     -> demo ticket purchase, saved to the database,
 //                            ticket e-mailed via Resend if RESEND_API_KEY is set
 //  - an /admin panel, protected by a password from .env, to read messages, subscribers and orders
 //
@@ -16,9 +15,10 @@
 
 require('dotenv').config();
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const db = require('./lib/db');
+const db = require('./lib/db').createStore();
 const mail = require('./lib/mail');
 
 const PORT = process.env.PORT || 3000;
@@ -70,13 +70,17 @@ function isValidEmail(v) {
   return typeof v === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
 }
 
+// Express 4 does not catch errors thrown inside async handlers. This wrapper
+// does, so a database problem returns a clear error instead of a hung request.
+const handle = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
 // ----- public API -----
 
 app.get('/api/tour', (req, res) => {
   res.json(TOUR);
 });
 
-app.post('/api/contact', (req, res) => {
+app.post('/api/contact', handle(async (req, res) => {
   const name = String(req.body.name || '').trim();
   const email = String(req.body.email || '').trim();
   const topic = String(req.body.topic || 'Fan message').trim();
@@ -89,20 +93,20 @@ app.post('/api/contact', (req, res) => {
     return res.status(400).json({ ok: false, error: 'One of the fields is too long.' });
   }
 
-  db.insert('messages', { name, email, topic, message });
+  await db.insert('messages', { name, email, topic, message });
   res.json({ ok: true });
-});
+}));
 
-app.post('/api/subscribe', (req, res) => {
+app.post('/api/subscribe', handle(async (req, res) => {
   const email = String(req.body.email || '').trim();
-  if (!isValidEmail(email)) {
+  if (!isValidEmail(email) || email.length > 200) {
     return res.status(400).json({ ok: false, error: 'Please enter a valid email.' });
   }
-  if (!db.findOne('subscribers', 'email', email)) {
-    db.insert('subscribers', { email });
+  if (!(await db.findOne('subscribers', 'email', email))) {
+    await db.insert('subscribers', { email });
   }
   res.json({ ok: true });
-});
+}));
 
 // Demo ticket purchase. No money moves: card fields never leave the browser.
 // The important lesson here: the browser only says WHICH show and HOW MANY.
@@ -115,7 +119,7 @@ function orderCode() {
   return code;
 }
 
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', handle(async (req, res) => {
   const show = TOUR.find(t => t.date === req.body.date);
   const qty = Number(req.body.qty);
   const name = String(req.body.name || '').trim();
@@ -130,11 +134,11 @@ app.post('/api/orders', async (req, res) => {
   if (!Number.isInteger(qty) || qty < 1 || qty > MAX_TICKETS) {
     return res.status(400).json({ ok: false, error: `You can buy from 1 to ${MAX_TICKETS} tickets.` });
   }
-  if (!name || name.length > 200 || !isValidEmail(email)) {
+  if (!name || name.length > 200 || !isValidEmail(email) || email.length > 200) {
     return res.status(400).json({ ok: false, error: 'Please fill in your name and a valid email.' });
   }
 
-  const order = db.insert('orders', {
+  const order = await db.insert('orders', {
     code: orderCode(),
     date: show.date,
     city: show.city,
@@ -149,18 +153,28 @@ app.post('/api/orders', async (req, res) => {
   // ticket on screen and the page tells them the e-mail did not go out.
   const emailSent = await mail.sendTicket(order);
   res.json({ ok: true, order, emailSent });
-});
+}));
 
 // ----- admin panel (password-protected) -----
 // This is intentionally simple HTTP Basic Auth: the browser itself asks
 // for a username/password and remembers it for the session. Good enough
-// for a one-person admin panel that is not on a real production server.
+// for a one-person admin panel.
+function samePassword(given) {
+  // Compare in constant time, so the answer time does not leak how many
+  // characters were right.
+  const a = Buffer.from(String(given));
+  const b = Buffer.from(ADMIN_PASSWORD);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 function requireAdmin(req, res, next) {
   const header = req.headers.authorization || '';
   const [scheme, encoded] = header.split(' ');
   if (scheme === 'Basic' && encoded) {
-    const [, pass] = Buffer.from(encoded, 'base64').toString().split(':');
-    if (pass === ADMIN_PASSWORD) return next();
+    const decoded = Buffer.from(encoded, 'base64').toString();
+    // "user:password" — the password itself may contain ":" too
+    const pass = decoded.slice(decoded.indexOf(':') + 1);
+    if (samePassword(pass)) return next();
   }
   res.set('WWW-Authenticate', 'Basic realm="YoWif admin"');
   return res.status(401).send('Authentication required.');
@@ -170,34 +184,39 @@ app.get('/admin', requireAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, 'admin', 'admin.html'));
 });
 
-app.get('/api/admin/messages', requireAdmin, (req, res) => {
-  res.json(db.all('messages'));
+for (const table of ['messages', 'subscribers', 'orders']) {
+  app.get(`/api/admin/${table}`, requireAdmin, handle(async (req, res) => {
+    res.json(await db.all(table));
+  }));
+  app.delete(`/api/admin/${table}/:id`, requireAdmin, handle(async (req, res) => {
+    await db.remove(table, req.params.id);
+    res.json({ ok: true });
+  }));
+}
+
+// ----- errors -----
+app.use('/api', (req, res) => {
+  res.status(404).json({ ok: false, error: 'Not found.' });
+});
+app.use((req, res) => {
+  res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
+app.use((err, req, res, next) => {
+  console.error('Server error on ' + req.method + ' ' + req.path + ':', err.message);
+  res.status(500).json({ ok: false, error: 'Something went wrong on our side. Please try again.' });
 });
 
-app.get('/api/admin/subscribers', requireAdmin, (req, res) => {
-  res.json(db.all('subscribers'));
-});
-
-app.get('/api/admin/orders', requireAdmin, (req, res) => {
-  res.json(db.all('orders'));
-});
-
-app.delete('/api/admin/orders/:id', requireAdmin, (req, res) => {
-  db.remove('orders', req.params.id);
-  res.json({ ok: true });
-});
-
-app.delete('/api/admin/messages/:id', requireAdmin, (req, res) => {
-  db.remove('messages', req.params.id);
-  res.json({ ok: true });
-});
-
-app.delete('/api/admin/subscribers/:id', requireAdmin, (req, res) => {
-  db.remove('subscribers', req.params.id);
-  res.json({ ok: true });
-});
-
-app.listen(PORT, () => {
-  console.log(`YoWif server running: http://localhost:${PORT}`);
-  console.log(`Admin panel:          http://localhost:${PORT}/admin`);
-});
+// ----- start -----
+// Prepare the storage first (create tables if needed), then accept visitors.
+db.init()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`YoWif server running: http://localhost:${PORT}`);
+      console.log(`Admin panel:          http://localhost:${PORT}/admin`);
+      console.log(`Storage:              ${db.kind === 'postgres' ? 'PostgreSQL (DATABASE_URL)' : 'JSON files in data/'}`);
+    });
+  })
+  .catch(err => {
+    console.error('Could not connect to the database:', err.message);
+    process.exit(1);
+  });
