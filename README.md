@@ -129,6 +129,11 @@ the client removed that key, the developer confirmed that both reading and
 pushing were refused, and deleted all local secrets. See
 [HANDOVER.md](HANDOVER.md).
 
+## Credits
+
+- Hero photo: [Benjamin Farren on Pexels](https://www.pexels.com/photo/21790480/), free to use under the Pexels License.
+- Fonts: Anton, Bebas Neue and Inter Tight from Google Fonts (SIL Open Font License).
+
 ---
 
 The band, its members and the tour are fictional.

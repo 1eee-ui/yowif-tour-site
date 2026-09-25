@@ -2,6 +2,8 @@
 
 [English version](README.md) · Живой сайт: https://yowif-site.onrender.com
 
+Фото на главной: [Benjamin Farren, Pexels](https://www.pexels.com/photo/21790480/) (бесплатная лицензия Pexels).
+
 Сайт рок-группы с настоящим бэкендом: форма связи, подписка на новости,
 демо-покупка билетов с письмом-билетом на почту и админ-панель.
 
