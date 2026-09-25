@@ -5,7 +5,8 @@
   "description": "YoWif site with a real (local) backend: contact form, newsletter signup, admin panel. Data stored in JSON files, no native compilation required.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test --test-concurrency=1"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -13,5 +14,8 @@
     "express-rate-limit": "^7.4.0",
     "pg": "^8.23.0",
     "stripe": "^18.5.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
   }
 }
