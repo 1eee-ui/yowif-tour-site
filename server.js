@@ -48,6 +48,9 @@ const MAX_TICKETS = 6;
 
 // ---------- app ----------
 const app = express();
+// On hosting (Render etc.) requests come through one proxy. Trust it, so the
+// rate limiter sees each visitor's real IP instead of the proxy's.
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, 'public')));
